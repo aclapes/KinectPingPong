@@ -21,6 +21,8 @@
 *.rc
 *.suo
 *.user
+*.sln
+*.vcxproj
 *.aps
 *.ico
 ipch/

@@ -482,7 +482,12 @@ int CColorBasics::RunServer(HINSTANCE hInstance, int nCmdShow, const char* port)
 		if (error == boost::asio::error::eof)
 			return -1; // Connection closed cleanly by peer.
 		else if (error)
+		{
+			cv::FileStorage fs ("data/frametimes.yml", cv::FileStorage::WRITE);
+			fs << "timesvector" << m_times;
+			fs.release();
 			throw boost::system::system_error(error); // Some other error.
+		}
 
 		m_mtx.lock();
 
