@@ -249,7 +249,7 @@ int CColorBasics::Run(HINSTANCE hInstance, int nCmdShow)
 	int pairedState = 0;
     while (WM_QUIT != msg.message && pairedState == 0)
     {
-		m_FrameTimes.clear();
+		
 
 #ifdef DEBUG_INFRARED
 		boost::timer t;
@@ -258,6 +258,7 @@ int CColorBasics::Run(HINSTANCE hInstance, int nCmdShow)
 		double sleepTime = std::max<double>(0, cInfraredDelayTime - emitterOffTime);
 		Sleep(sleepTime);
 #ifdef DEBUG_TIMES
+		m_FrameTimes.clear();
 		m_FrameTimes.push_back(emitterOffTime); // 1
 #endif // DEBUG_TIMES
 #endif // DEBUG_INFRARED

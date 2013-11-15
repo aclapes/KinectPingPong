@@ -20,8 +20,6 @@
 *.opensdf
 *.rc
 *.suo
-*.sln
-*.vcxproj
 *.user
 *.aps
 *.ico
