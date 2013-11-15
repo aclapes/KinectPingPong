@@ -26,3 +26,5 @@
 *.aps
 *.ico
 ipch/
+x64/
+Data/

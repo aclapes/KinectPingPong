@@ -23,8 +23,8 @@
 
 #include <opencv2/opencv.hpp>
 
-#define DEBUG_INFRARED
-#define DEBUG_TIMES
+//#define DEBUG_INFRARED
+//#define DEBUG_TIMES
 //#define DEBUG_USERDETECTION
 
 //#define USE_SKELETON
@@ -161,10 +161,16 @@ private:
 	boost::asio::ip::tcp::socket* m_pSocket;
 	boost::mutex			m_mtx;
 
+	std::vector<double> m_times;
+	boost::timer m_general;
+
 #ifdef DEBUG_TIMES
 	std::vector<double>		m_FrameTimes;
 	cv::FileStorage			m_TimesFS;
 #endif
+
+	
+	void peredelafavera(void);
 
     /// <summary>
     /// Update depth frame
@@ -306,4 +312,5 @@ private:
     /// <param name="lpszFilePath">full file path to output bitmap to</param>
     /// <returns>S_OK on success, otherwise failure code</returns>
     HRESULT                 SaveBitmapToFile(BYTE* pBitmapBits, LONG lWidth, LONG lHeight, WORD wBitsPerPixel, LPCTSTR lpszFilePath);
+
 };

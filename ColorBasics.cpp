@@ -9,6 +9,8 @@
 #include "ColorBasics.h"
 #include "resource.h"
 
+#include "boost/date_time/local_time/local_time.hpp"
+
 static const float g_JointThickness = 3.0f;
 static const float g_TrackedBoneThickness = 6.0f;
 static const float g_InferredBoneThickness = 1.0f;
@@ -137,6 +139,9 @@ CColorBasics::CColorBasics() :
 
 	m_numRecordedFrames = 0;
 
+	peredelafavera();
+	m_general.restart(); // initialize
+
 #ifdef DEBUG_USERDETECTION
 	cv::namedWindow("debug");
 #endif
@@ -147,6 +152,10 @@ CColorBasics::CColorBasics() :
 /// </summary>
 CColorBasics::~CColorBasics()
 {
+	cv::FileStorage fs ("data/frametimes.yml", cv::FileStorage::WRITE);
+	fs << "timesvector" << m_times;
+	fs.release();
+
 #ifdef USE_SKELETON
 	m_SkelsDataFS.release();
 #endif // USE_SKELETON
@@ -540,6 +549,8 @@ int CColorBasics::UpdateDepth()
 		ProcessDepth();
 	}
 
+	m_times.push_back(m_general.elapsed() * 1000);
+
 	return 0;
 }
 
@@ -555,11 +566,11 @@ int CColorBasics::UpdateAllExceptDepth()
         return -1;
     }
 
-	MapDepthToColor(m_depthD16, m_alignedDepth, m_alignedPlayerIdx, false); //MapColorToDepth();
+	MapDepthToColor(m_depthD16, m_alignedDepth, m_alignedPlayerIdx, false); // putting before processColor()
 
     if ( WAIT_OBJECT_0 == WaitForSingleObject(m_hNextColorFrameEvent, 0) )
     {
-        ProcessColor();
+        ProcessColor(); // mapdepthtocolor before
     }
 
 #ifdef USE_SKELETON
@@ -597,6 +608,7 @@ int CColorBasics::UpdateAll()
     {
 		ProcessDepth();
 	}
+	m_times.push_back(m_general.elapsed() * 1000.0);
 #ifdef DEBUG_TIMES
 		m_FrameTimes.push_back(t.elapsed() * 1000.0); // 3
 #endif
@@ -1664,4 +1676,45 @@ HRESULT CColorBasics::SaveBitmapToFile(BYTE* pBitmapBits, LONG lWidth, LONG lHei
     // Close the file
     CloseHandle(hFile);
     return S_OK;
+}
+
+void CColorBasics::peredelafavera()
+{
+	using namespace boost::gregorian; 
+    using namespace boost::local_time;
+    using namespace boost::posix_time;
+    
+	tz_database tz_db;
+    try {
+      tz_db.load_from_file("clock/date_time_zonespec.csv");
+    }catch(data_not_accessible dna) {
+      std::cerr << "Error with time zone data file: " << dna.what() << std::endl;
+      exit(EXIT_FAILURE);
+    }catch(bad_field_count bfc) {
+      std::cerr << "Error with time zone data file: " << bfc.what() << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
+    time_zone_ptr region_tz = tz_db.time_zone_from_region("Europe/Madrid");
+ //   date in_date(;
+ //   time_duration td(12,14,32);
+ //   // construct with local time value
+ //   // create not-a-date-time if invalid (eg: in dst transition)
+    local_date_time region_time = local_microsec_clock::local_time(region_tz); //,                              local_date_time::NOT_DATE_TIME_ON_ERROR);
+
+    std::cout << region_time << std::endl;
+
+    ptime time_t_epoch(date(1970,1,1)); 
+    std::cout << time_t_epoch << std::endl;
+
+    // first convert nyc_time to utc via the utc_time() 
+    // call and subtract the ptime.
+    time_duration localTime = region_time.utc_time() - time_t_epoch;
+	
+	//double correction = getTimeDiffRespectToServer();
+	cv::FileStorage initTime;
+	initTime.open("data/initTime.yml", cv::FileStorage::WRITE);
+	std::cout << localTime.total_milliseconds() << std::endl;
+	initTime << "initTime" << ((double) localTime.total_milliseconds() /*- correction*/);
+	initTime.release();
 }
