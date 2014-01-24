@@ -29,7 +29,7 @@
 
 //#define USE_SKELETON
 
-//#define SYNC_WEARABLE
+#define SYNC_WEARABLE
 
 class CColorBasics
 {
@@ -172,7 +172,7 @@ private:
 #endif
 
 	
-	void peredelafavera(void);
+	void SaveInitialTimeSinceFirstEpoch(void);
 
     /// <summary>
     /// Update depth frame

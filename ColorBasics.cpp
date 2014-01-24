@@ -148,7 +148,7 @@ CColorBasics::CColorBasics() :
 
 	m_numRecordedFrames = 0;
 
-	peredelafavera();
+	
 	m_general.restart(); // initialize
 
 #ifdef DEBUG_USERDETECTION
@@ -176,8 +176,6 @@ CColorBasics::~CColorBasics()
     {
         m_pNuiSensor->NuiShutdown();
     }
-
-	m_pNui->
 
     if (m_hNextDepthFrameEvent != INVALID_HANDLE_VALUE)
     {
@@ -426,12 +424,12 @@ int CColorBasics::RunClient(HINSTANCE hInstance, int nCmdShow, const char* host,
 
 		boost::thread t (&CColorBasics::UpdateAllExceptDepth, this);
 
-		char request[max_length];
+		char request[1];
 		request[0] = 'A';
 		size_t request_length = strlen(request);
 		boost::asio::write(*m_pSocket, boost::asio::buffer(request, request_length));
 
-		char reply[max_length];
+		char reply[1];
 		size_t reply_length = boost::asio::read(*m_pSocket, boost::asio::buffer(reply, request_length));
     
 		m_numRecordedFrames++;
@@ -484,6 +482,7 @@ int CColorBasics::RunServer(HINSTANCE hInstance, int nCmdShow, const char* port,
 #ifdef SYNC_WEARABLE
 	bool success = SyncWearable(wearhost, wearport);
 #endif
+	peredelafavera();
 
     // Main message loop
 	int pairedState = 0;
@@ -495,9 +494,9 @@ int CColorBasics::RunServer(HINSTANCE hInstance, int nCmdShow, const char* port,
 		size_t length = m_pSocket->read_some(boost::asio::buffer(data), error);
 		if (error == boost::asio::error::eof)
 			return -1; // Connection closed cleanly by peer.
-		else if (error && *data == 'T')
+		else if (data[0] == 'T')
 		{
-			cv::FileStorage fs ("data/frametimes.yml", cv::FileStorage::WRITE);
+			cv::FileStorage fs ("Data/frametimes.yml", cv::FileStorage::WRITE);
 			fs << "timesvector" << m_times;
 			fs.release();
 			throw boost::system::system_error(error); // Some other error.
@@ -545,6 +544,8 @@ int CColorBasics::RunServer(HINSTANCE hInstance, int nCmdShow, const char* port,
 
 		m_pNuiSensor->NuiSetForceInfraredEmitterOff(true);
 
+		char wdata[1];
+		wdata[0] = 'A';
 		boost::thread t (&CColorBasics::UpdateAllExceptDepth, this);
 		boost::asio::write(*m_pSocket, boost::asio::buffer(data, length));
 
@@ -755,7 +756,7 @@ LRESULT CALLBACK CColorBasics::DlgProc(HWND hWnd, UINT message, WPARAM wParam, L
     switch (message)
     {
         case WM_INITDIALOG:
-        {
+			{
             // Bind application window handle
             m_hWnd = hWnd;
 
@@ -773,16 +774,20 @@ LRESULT CALLBACK CColorBasics::DlgProc(HWND hWnd, UINT message, WPARAM wParam, L
 
             // Look for a connected Kinect, and create it if found
             CreateFirstConnected();
-        }
+			}
         break;
 
         // If the titlebar X is clicked, destroy app
         case WM_CLOSE:
+			{
 			char request[1];
-			request[0] = 'Z';
-			size_t request_length = strlen(request);boost::asio::write(*m_pSocket, boost::asio::buffer(request, request_length));
+			request[0] = 'T';
+			size_t request_length = strlen(request);
+			boost::asio::write(*m_pSocket, boost::asio::buffer(request, request_length));
             DestroyWindow(hWnd);
+			}
             break;
+			
 
         case WM_DESTROY:
             // Quit the main message pump
@@ -791,6 +796,7 @@ LRESULT CALLBACK CColorBasics::DlgProc(HWND hWnd, UINT message, WPARAM wParam, L
 
         // Handle button press
         case WM_COMMAND:
+			{
             // If it was for the screenshot control and a button clicked event, save a screenshot next frame 
             if (IDC_BUTTON_SCREENSHOT == LOWORD(wParam) && BN_CLICKED == HIWORD(wParam))
             {
@@ -810,6 +816,7 @@ LRESULT CALLBACK CColorBasics::DlgProc(HWND hWnd, UINT message, WPARAM wParam, L
 					m_pNuiSensor->NuiSkeletonTrackingEnable(m_hNextSkeletonEvent, m_bSeatedMode ? NUI_SKELETON_TRACKING_FLAG_ENABLE_SEATED_SUPPORT : 0);
 				}
 #endif
+			}
 			}
 			break;
     }
