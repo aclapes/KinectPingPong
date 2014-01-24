@@ -484,6 +484,11 @@ int CColorBasics::RunServer(HINSTANCE hInstance, int nCmdShow, const char* port,
 #endif
 	peredelafavera();
 
+#ifdef SYNC_WEARABLE
+	bool success = SyncWearable(wearhost, wearport);
+#endif
+	peredelafavera();
+
     // Main message loop
 	int pairedState = 0;
     while (WM_QUIT != msg.message && pairedState == 0)
@@ -784,6 +789,11 @@ LRESULT CALLBACK CColorBasics::DlgProc(HWND hWnd, UINT message, WPARAM wParam, L
 			request[0] = 'T';
 			size_t request_length = strlen(request);
 			boost::asio::write(*m_pSocket, boost::asio::buffer(request, request_length));
+
+			cv::FileStorage fs ("data/frametimes.yml", cv::FileStorage::WRITE);
+			fs << "timesvector" << m_times;
+			fs.release();
+
             DestroyWindow(hWnd);
 			}
             break;
