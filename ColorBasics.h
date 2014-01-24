@@ -29,6 +29,8 @@
 
 //#define USE_SKELETON
 
+//#define SYNC_WEARABLE
+
 class CColorBasics
 {
 	static const int					cBytesPerPixel   = 4;
@@ -93,7 +95,7 @@ public:
     /// <param name="hInstance"></param>
     /// <param name="nCmdShow"></param>
 	/// <param name="port"></param>
-    int                     RunServer(HINSTANCE hInstance, int nCmdShow, const char* port);
+    int                     RunServer(HINSTANCE hInstance, int nCmdShow, const char* port, const char* wearhost, const char* wearport);
 
 private:
     HWND                    m_hWnd;
@@ -285,6 +287,11 @@ private:
 	/// Create a server
 	/// </summary>
 	void					CreateServer(const char* port);
+
+	/// <summary>
+	/// Synchronize with wearable sensors via other computer
+	/// </summary>
+	int					SyncWearable(const char* host, const char* port);
 
 	/// <summary>
 	/// Put the created server to listen

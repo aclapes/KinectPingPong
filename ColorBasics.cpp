@@ -58,20 +58,29 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 	// Create the application
 	CColorBasics application;
 
-	if (args.size() < 2) // standalone version
+	// 1 arg:  ./application_name (Standalone)
+	// 2 args: ./application_name port (Server)
+	// 3 args: ./application_name host port (Client)
+	// 4 args: ./applicatoin_name port wearhost wearport (Server)
+
+	if (args.size() == 1) // Standalone
 	{
 		application.Run(hInstance, nCmdShow);
 	}
-	else // client-server pingpong
+	else
 	{
-		if (args.size() > 2) // client
+		if (args.size() == 3) // Client
 		{
 			application.RunClient(hInstance, nCmdShow, args[1].c_str(), args[2].c_str());
 
 		}
-		else // server
+		else // Server
 		{
-			application.RunServer(hInstance, nCmdShow, args[1].c_str());
+#ifdef SYNC_WEARABLE
+			application.RunServer(hInstance, nCmdShow, args[1].c_str(), args[2].c_str(), args[3].c_str());
+#else
+			application.RunServer(hInstance, nCmdShow, args[1].c_str(), "", "");
+#endif
 		}
 	}
 }
@@ -167,6 +176,8 @@ CColorBasics::~CColorBasics()
     {
         m_pNuiSensor->NuiShutdown();
     }
+
+	m_pNui->
 
     if (m_hNextDepthFrameEvent != INVALID_HANDLE_VALUE)
     {
@@ -358,7 +369,7 @@ int CColorBasics::RunClient(HINSTANCE hInstance, int nCmdShow, const char* host,
 	CreateClient(host, port);
 
 		boost::timer t;
-		char request[max_length];
+		char request[1];
 		request[0] = 'A';
 		size_t request_length = strlen(request);
 		boost::asio::write(*m_pSocket, boost::asio::buffer(request, request_length));
@@ -435,7 +446,7 @@ int CColorBasics::RunClient(HINSTANCE hInstance, int nCmdShow, const char* host,
 /// <param name="hInstance">handle to the application instance</param>
 /// <param name="nCmdShow">whether to display minimized, maximized, or normally</param>
 /// <param name="port">port to communicate with</param>
-int CColorBasics::RunServer(HINSTANCE hInstance, int nCmdShow, const char* port)
+int CColorBasics::RunServer(HINSTANCE hInstance, int nCmdShow, const char* port, const char* wearhost, const char* wearport)
 {
     MSG       msg = {0};
     WNDCLASS  wc;
@@ -470,18 +481,21 @@ int CColorBasics::RunServer(HINSTANCE hInstance, int nCmdShow, const char* port)
     HANDLE hEvents[eventCount];
 
 	CreateServer(port);
+#ifdef SYNC_WEARABLE
+	bool success = SyncWearable(wearhost, wearport);
+#endif
 
     // Main message loop
 	int pairedState = 0;
     while (WM_QUIT != msg.message && pairedState == 0)
     {
-		char data[max_length];
+		char data[1];
 		boost::system::error_code error;
 
 		size_t length = m_pSocket->read_some(boost::asio::buffer(data), error);
 		if (error == boost::asio::error::eof)
 			return -1; // Connection closed cleanly by peer.
-		else if (error)
+		else if (error && *data == 'T')
 		{
 			cv::FileStorage fs ("data/frametimes.yml", cv::FileStorage::WRITE);
 			fs << "timesvector" << m_times;
@@ -764,6 +778,9 @@ LRESULT CALLBACK CColorBasics::DlgProc(HWND hWnd, UINT message, WPARAM wParam, L
 
         // If the titlebar X is clicked, destroy app
         case WM_CLOSE:
+			char request[1];
+			request[0] = 'Z';
+			size_t request_length = strlen(request);boost::asio::write(*m_pSocket, boost::asio::buffer(request, request_length));
             DestroyWindow(hWnd);
             break;
 
@@ -1608,6 +1625,57 @@ void CColorBasics::CreateServer(const char* port)
 	//boost::thread t ( boost::bind(&CColorBasics::Server, this, io_service, std::atoi(port)) );
 	Server(*io_service, std::atoi(port));
 }
+
+/// <summary>
+/// Synchronize with wearable sensors via other computer
+/// </summary>
+/// <param name="port">Port to listen</param>
+int CColorBasics::SyncWearable(const char* host, const char* port)
+{
+	int status;
+	struct addrinfo host_info;       // The struct that getaddrinfo() fills up with data.
+	struct addrinfo *host_info_list; // Pointer to the to the linked list of host_info's.
+
+	// The MAN page of getaddrinfo() states "All  the other fields in the structure pointed
+	// to by hints must contain either 0 or a null pointer, as appropriate." When a struct 
+	// is created in C++, it will be given a block of memory. This memory is not necessary
+	// empty. Therefor we use the memset function to make sure all fields are NULL.     
+	memset(&host_info, 0, sizeof host_info);
+
+	std::cout << "Setting up the structs..."  << std::endl;
+
+	host_info.ai_family = AF_UNSPEC;     // IP version not specified. Can be both.
+	host_info.ai_socktype = SOCK_STREAM; // Use SOCK_STREAM for TCP or SOCK_DGRAM for UDP.
+
+	// Now fill up the linked list of host_info structs with google's address information.
+	status = getaddrinfo(host, port, &host_info, &host_info_list);
+
+
+	std::cout << "Creating a socket..."  << std::endl;
+	int socketfd ; // The socket descripter
+	socketfd = socket(host_info_list->ai_family, host_info_list->ai_socktype, 
+	host_info_list->ai_protocol);
+	if (socketfd == -1){
+		std::cout << "socket error " ;
+		return -1;
+	}  
+
+	std::cout << "Connecting..."  << std::endl;
+	status = connect(socketfd, host_info_list->ai_addr, host_info_list->ai_addrlen);
+	if (status == -1){
+		std::cout << "connect error" ;
+		return -1;
+	}  
+
+	std::cout << "sending message..."  << std::endl;
+	char* msg = new char[1];
+	msg[0] = 'H';
+	int len;
+
+	len = strlen(msg);
+	return send(socketfd, msg, len, 0);
+}
+
 
 /// <summary>
 /// Set the status bar message
